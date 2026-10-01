@@ -1,0 +1,27 @@
+.env
+**/node_modules/
+**/target/
+.env.*
+!.env.example
+
+#spring boot configuration containing secrets
+
+backend/src/main/resources/application.properties
+
+# java / maven
+
+backend/target/
+
+#react / NOde.js
+frontend/node_modules/
+frontend/dist/
+
+
+#local backups
+docker-compose.yml.backup
+
+# os files
+
+.DS_Store
+Thumbs.db
+
