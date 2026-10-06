@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -7,6 +6,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -44,17 +44,50 @@ pipeline {
             steps {
                 sh '''
                     echo "Verifying generated Docker images..."
+
                     docker image inspect cloudshop-backend:${BUILD_NUMBER}
                     docker image inspect cloudshop-frontend:${BUILD_NUMBER}
+
                     echo "Both Docker images were built successfully."
                 '''
+            }
+        }
+
+        stage('Deploy CloudShop') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'cloudshop-env',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "Preparing environment file..."
+                        cp "$ENV_FILE" .env
+
+                        echo "Validating Docker Compose configuration..."
+                        docker compose -p cloudshop config > /dev/null
+
+                        echo "Deploying CloudShop..."
+                        docker compose -p cloudshop up -d --build
+
+                        echo "Checking running containers..."
+                        docker compose -p cloudshop ps
+
+                        rm -f .env
+
+                        echo "CloudShop deployment completed."
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'SUCCESS: CloudShop CI image build completed.'
+            echo 'SUCCESS: CloudShop CI/CD pipeline completed.'
         }
 
         failure {
