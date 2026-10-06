@@ -1,0 +1,114 @@
+name: CloudShop CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------
+      # 1. Checkout CloudShop source code
+      # ------------------------------------------------
+      - name: Checkout CloudShop source code
+        uses: actions/checkout@v4
+
+      - name: Check repository status
+        run: |
+          echo "Checking out CloudShop source code..."
+          git status --short --branch
+
+      # ------------------------------------------------
+      # 2. Build Backend Docker Image
+      # ------------------------------------------------
+      - name: Build Java Spring Boot backend
+        run: |
+          echo "Building Java Spring Boot backend..."
+
+          docker build \
+            -t cloudshop-backend:${{ github.run_number }} \
+            ./backend
+
+      # ------------------------------------------------
+      # 3. Build Frontend Docker Image
+      # ------------------------------------------------
+      - name: Build React frontend
+        run: |
+          echo "Building React frontend..."
+
+          docker build \
+            -t cloudshop-frontend:${{ github.run_number }} \
+            ./frontend
+
+      # ------------------------------------------------
+      # 4. Verify Docker Images
+      # ------------------------------------------------
+      - name: Verify generated Docker images
+        run: |
+          echo "Verifying generated Docker images..."
+
+          docker image inspect cloudshop-backend:${{ github.run_number }}
+          docker image inspect cloudshop-frontend:${{ github.run_number }}
+
+          echo "Both Docker images were built successfully."
+
+      # ------------------------------------------------
+      # 5. Create .env from GitHub Secret
+      # ------------------------------------------------
+      - name: Prepare environment file
+        run: |
+          echo "${{ secrets.CLOUDSHOP_ENV }}" > .env
+
+      # ------------------------------------------------
+      # 6. Validate Docker Compose
+      # ------------------------------------------------
+      - name: Validate Docker Compose configuration
+        run: |
+          docker compose -p cloudshop config > /dev/null
+
+      # ------------------------------------------------
+      # 7. Deploy CloudShop
+      # ------------------------------------------------
+      - name: Deploy CloudShop
+        run: |
+          set -e
+
+          echo "Deploying CloudShop..."
+
+          docker compose -p cloudshop up -d --build
+
+          echo "Checking running containers..."
+
+          docker compose -p cloudshop ps
+
+          echo "CloudShop deployment completed."
+
+      # ------------------------------------------------
+      # 8. Remove .env
+      # ------------------------------------------------
+      - name: Remove environment file
+        if: always()
+        run: |
+          rm -f .env
+
+      # ------------------------------------------------
+      # 9. Success message
+      # ------------------------------------------------
+      - name: Deployment successful
+        if: success()
+        run: |
+          echo "SUCCESS: CloudShop CI/CD pipeline completed."
+
+      # ------------------------------------------------
+      # 10. Failure message
+      # ------------------------------------------------
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "FAILED: Check the GitHub Actions logs for the error."
